@@ -1,0 +1,76 @@
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models import Record
+
+router = APIRouter()
+
+
+class RecordCreate(BaseModel):
+    doc_type: str = ""
+    doc_date: str = ""
+    reference_no: str = ""
+    sender: str = ""
+    subject: str = ""
+    summary: str = ""
+    original_filename: str = ""
+    file_path: str = ""
+
+
+class RecordUpdate(BaseModel):
+    doc_type: str = ""
+    doc_date: str = ""
+    reference_no: str = ""
+    sender: str = ""
+    subject: str = ""
+    summary: str = ""
+
+
+def _generate_control_no(db: Session) -> str:
+    year = datetime.now().year
+    count = db.query(Record).count() + 1
+    return f"REC-{year}-{count:04d}"
+
+
+@router.get("/records")
+def list_records(db: Session = Depends(get_db)):
+    return db.query(Record).order_by(Record.id.desc()).all()
+
+
+@router.post("/records")
+def create_record(data: RecordCreate, db: Session = Depends(get_db)):
+    record = Record(
+        **data.model_dump(),
+        control_no=_generate_control_no(db),
+        uploaded_at=datetime.now().isoformat(),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@router.put("/records/{record_id}")
+def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_db)):
+    record = db.query(Record).filter(Record.id == record_id).first()
+    if not record:
+        raise HTTPException(404, "Record not found")
+    for field, value in data.model_dump().items():
+        setattr(record, field, value)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@router.delete("/records/{record_id}")
+def delete_record(record_id: int, db: Session = Depends(get_db)):
+    record = db.query(Record).filter(Record.id == record_id).first()
+    if not record:
+        raise HTTPException(404, "Record not found")
+    db.delete(record)
+    db.commit()
+    return {"ok": True}

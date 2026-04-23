@@ -1,0 +1,28 @@
+# Environment — never commit secrets
+.env
+
+# Database (local data, not shared)
+*.db
+*.db-shm
+*.db-wal
+
+# Uploaded files (local storage)
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
