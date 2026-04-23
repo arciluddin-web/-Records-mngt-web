@@ -18,11 +18,12 @@ from routes.export import router as export_router
 from routes.records import router as records_router
 from routes.upload import router as upload_router
 
-app = FastAPI(title="FAD Records Management", dependencies=[Depends(verify_credentials)])
+app = FastAPI(title="FAD Records Management")
 
-app.include_router(upload_router)
-app.include_router(records_router)
-app.include_router(export_router)
+auth = [Depends(verify_credentials)]
+app.include_router(upload_router, dependencies=auth)
+app.include_router(records_router, dependencies=auth)
+app.include_router(export_router, dependencies=auth)
 
 UPLOAD_DIR = os.path.join(os.environ.get("DATA_DIR", "."), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
