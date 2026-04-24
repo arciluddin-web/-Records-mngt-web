@@ -48,18 +48,34 @@ def _parse_json(text: str) -> dict:
 
 def _extract_pdf_text(file_path: str) -> str:
     pages = []
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            pages.append(page.extract_text() or "")
-    return "\n".join(pages)
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                pages.append(text or "")
+        extracted = "\n".join(pages).strip()
+        if not extracted:
+            raise ValueError("PDF extraction returned empty text")
+        return extracted
+    except Exception as e:
+        raise ValueError(f"Failed to extract PDF: {e}")
 
 
 def _extract_docx_text(file_path: str) -> str:
-    doc = Document(file_path)
-    return "\n".join(p.text for p in doc.paragraphs)
+    try:
+        doc = Document(file_path)
+        extracted = "\n".join(p.text for p in doc.paragraphs).strip()
+        if not extracted:
+            raise ValueError("DOCX extraction returned empty text")
+        return extracted
+    except Exception as e:
+        raise ValueError(f"Failed to extract DOCX: {e}")
 
 
 def _call_claude_text(text: str) -> dict:
+    if not text or not text.strip():
+        raise ValueError("Document text is empty. Unable to extract information.")
+    
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=600,
