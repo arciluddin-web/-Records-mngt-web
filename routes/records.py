@@ -49,8 +49,15 @@ class RecordUpdate(BaseModel):
 
 def _generate_control_no(db: Session) -> str:
     year = datetime.now().year
-    count = db.query(Record).count() + 1
-    return f"REC-{year}-{count:04d}"
+    prefix = f"REC-{year}-"
+    last = (
+        db.query(Record)
+        .filter(Record.control_no.like(f"{prefix}%"))
+        .order_by(Record.control_no.desc())
+        .first()
+    )
+    seq = int(last.control_no[len(prefix):]) + 1 if last else 1
+    return f"{prefix}{seq:04d}"
 
 
 @router.get("/records", response_model=list[RecordOut])
