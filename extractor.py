@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -84,9 +85,27 @@ def _call_claude_text(text: str) -> dict:
     return _parse_json(msg.content[0].text)
 
 
-def _call_claude_image(file_path: str, media_type: str) -> dict:
-    with open(file_path, "rb") as f:
-        image_data = base64.standard_b64encode(f.read()).decode("utf-8")
+def _extract_pdf_image_bytes(file_path: str) -> bytes:
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            if not pdf.pages:
+                raise ValueError("PDF has no pages")
+            page = pdf.pages[0]
+            page_image = page.to_image(resolution=200).original
+            buffer = io.BytesIO()
+            page_image.save(buffer, format="PNG")
+            return buffer.getvalue()
+    except Exception as e:
+        raise ValueError(f"Failed to render PDF as image: {e}")
+
+
+def _call_claude_image(image_source, media_type: str) -> dict:
+    if isinstance(image_source, bytes):
+        image_data = base64.standard_b64encode(image_source).decode("utf-8")
+    else:
+        with open(image_source, "rb") as f:
+            image_data = base64.standard_b64encode(f.read()).decode("utf-8")
+
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=600,
@@ -108,8 +127,14 @@ def extract_document_info(file_path: str, filename: str) -> dict:
     ext = filename.lower().rsplit(".", 1)[-1]
 
     if ext == "pdf":
-        text = _extract_pdf_text(file_path)
-        return _call_claude_text(text)
+        try:
+            text = _extract_pdf_text(file_path)
+            return _call_claude_text(text)
+        except ValueError as e:
+            if "empty text" in str(e).lower() or "failed to extract pdf" in str(e).lower():
+                image_bytes = _extract_pdf_image_bytes(file_path)
+                return _call_claude_image(image_bytes, "image/png")
+            raise
     elif ext == "docx":
         text = _extract_docx_text(file_path)
         return _call_claude_text(text)
