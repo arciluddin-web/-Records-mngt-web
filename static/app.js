@@ -30,8 +30,11 @@ async function handleFile(file) {
   form.append('file', file);
   try {
     const res = await fetch('/upload', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message = data?.detail || data?.error || res.statusText || 'Upload failed';
+      throw new Error(message);
+    }
     populateReviewForm(data);
     openModal('review-modal');
   } catch (err) {
@@ -76,7 +79,12 @@ async function saveRecord() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) { showError('Failed to save record'); return; }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message = data?.detail || data?.error || res.statusText || 'Failed to save record';
+    showError(message);
+    return;
+  }
   closeModal('review-modal');
   await loadRecords();
 }

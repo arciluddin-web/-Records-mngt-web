@@ -7,6 +7,23 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Record
 
+
+class RecordOut(BaseModel):
+    id: int
+    control_no: str
+    doc_type: str
+    doc_date: str
+    reference_no: str
+    sender: str
+    subject: str
+    summary: str
+    original_filename: str
+    file_path: str
+    uploaded_at: str
+
+    class Config:
+        orm_mode = True
+
 router = APIRouter()
 
 
@@ -36,15 +53,15 @@ def _generate_control_no(db: Session) -> str:
     return f"REC-{year}-{count:04d}"
 
 
-@router.get("/records")
+@router.get("/records", response_model=list[RecordOut])
 def list_records(db: Session = Depends(get_db)):
     return db.query(Record).order_by(Record.id.desc()).all()
 
 
-@router.post("/records")
+@router.post("/records", response_model=RecordOut)
 def create_record(data: RecordCreate, db: Session = Depends(get_db)):
     record = Record(
-        **data.model_dump(),
+        **data.dict(),
         control_no=_generate_control_no(db),
         uploaded_at=datetime.now().isoformat(),
     )
@@ -59,7 +76,7 @@ def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_
     record = db.query(Record).filter(Record.id == record_id).first()
     if not record:
         raise HTTPException(404, "Record not found")
-    for field, value in data.model_dump().items():
+    for field, value in data.dict().items():
         setattr(record, field, value)
     db.commit()
     db.refresh(record)
