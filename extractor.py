@@ -29,10 +29,21 @@ Document content:
 
 def _parse_json(text: str) -> dict:
     text = text.strip()
+    
+    # Remove markdown code block if present
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+    
+    # Find JSON object
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
-        return json.loads(match.group())
-    raise ValueError("No JSON object found in Claude response")
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in Claude response: {e}")
+    
+    raise ValueError(f"No JSON object found in Claude response. Received: {text[:200]}")
 
 
 def _extract_pdf_text(file_path: str) -> str:
