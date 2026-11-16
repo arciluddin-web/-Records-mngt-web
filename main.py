@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -29,7 +29,16 @@ UPLOAD_DIR = os.path.join(os.environ.get("DATA_DIR", "."), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+
+@app.get("/uploads/{filename}", dependencies=auth)
+def get_upload(filename: str):
+    # Serve uploaded files only to logged-in users, and only from UPLOAD_DIR.
+    base = os.path.realpath(UPLOAD_DIR)
+    path = os.path.realpath(os.path.join(base, filename))
+    if os.path.dirname(path) != base or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path)
 
 
 @app.get("/health")
